@@ -1,26 +1,14 @@
-
 {
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "qrcode": "^1.5.4",
-    "qrcode-pix": "^5.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.11"
-  },
-  "name": "site-teste",
+  "name": "pix-api-vibe",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-    
+    "start": "node src/index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "gpix": "^latest"
+  }
 }

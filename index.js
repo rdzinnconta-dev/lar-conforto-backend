@@ -1,74 +1,68 @@
-require('dotenv').config();
+import express from 'express';
+import QRCode from 'qrcode';
+import { PIX } from 'gpix';  // ou import gpix from 'gpix' dependendo da versão
 
-const express = require('express');
-const cors = require('cors');
-const { QrCodePix } = require('qrcode-pix');
-const QRCode = require('qrcode');
-
-const app = express();  // ← CRIE O APP PRIMEIRO AQUI!
-
-app.use(cors({ origin: '*' }));  // permite o frontend acessar
+const app = express();
 app.use(express.json());
 
-const port = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
-// Rota de teste (opcional, para confirmar que o servidor está vivo)
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Backend rodando!' });
-});
+// ← Coloque suas informações reais aqui ↓
+const CONFIG_PIX = {
+  chave: '43999229986',       // ← SUA CHAVE PIX REAL
+  nome: 'Pod vibes 2026',        // Nome do recebedor
+  cidade: 'São Paulo',                // Cidade
+  identificador: 'podvibe'            // Identificador (txid curto)
+};
 
-// Rota PIX (depois do app!)
 app.post('/api/gerar-pix-qr', async (req, res) => {
   try {
     const { items } = req.body;
 
-    console.log('Itens recebidos:', items);  // debug: veja no terminal
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Itens do carrinho obrigatórios' });
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'Carrinho vazio' });
     }
 
-    const totalCentavos = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
-    const totalReais = totalCentavos / 100;
+    // Calcula total em centavos (seu frontend já envia em centavos)
+    const totalCentavos = items.reduce((sum, item) => {
+      return sum + (Number(item.unit_price) * Number(item.quantity));
+    }, 0);
 
-    if (totalReais <= 0) {
-      return res.status(400).json({ error: 'Valor inválido' });
-    }
+    const valor = (totalCentavos / 100).toFixed(2);
 
-    const txid = `POD${Date.now().toString().slice(-8)}`;
+    // Gera payload PIX estático
+    const pix = PIX.static()
+      .setKey(CONFIG_PIX.chave)
+      .setAmount(valor)
+      .setName(CONFIG_PIX.nome)
+      .setCity(CONFIG_PIX.cidade)
+      .setIdentifier(CONFIG_PIX.identificador);
 
-    const qrCodePix = QrCodePix({
-      version: '01',
-      key: process.env.PIX_KEY,
-      name: process.env.PIX_NAME,
-      city: process.env.PIX_CITY,
-      transactionId: txid,
-      message: `Pagamento Pedido ${txid}`,
-      value: totalReais,
+    const payload = pix.getBRCode();       // string "00020126..." completa
+
+    // Gera imagem QR em base64
+    const qrCodeBase64 = await QRCode.toDataURL(payload, {
+      width: 400,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' }
     });
-
-    const payload = qrCodePix.payload();
-    const base64Qr = await qrCodePix.base64();
 
     res.json({
       success: true,
-      payload,
-      qrCodeBase64: base64Qr,
-      valor: totalReais,
-      txid,
-      message: `Pague exatamente R$ ${totalReais.toFixed(2).replace('.', ',')}`
+      valor: Number(valor),
+      qrCodeBase64,
+      payload
     });
 
   } catch (error) {
-    console.error('Erro ao gerar PIX:', error);
-    res.status(500).json({
-      error: 'Erro interno ao gerar PIX',
-      details: error.message
-    });
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Erro ao gerar PIX' });
   }
 });
 
-// Inicia o servidor (sempre no final)
-app.listen(port, () => {
-  console.log(`Backend rodando em http://localhost:${port}`);
+// Rota de teste
+app.get('/health', (req, res) => res.json({ status: 'ok', api: 'Pix Vibe 2026' }));
+
+app.listen(PORT, () => {
+  console.log(`API PIX rodando → porta ${PORT}`);
 });
